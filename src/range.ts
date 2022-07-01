@@ -1,4 +1,4 @@
-export function parseHeaderRange(
+export function parseRangeRequests(
   text: string,
   size: number
 ): [number, number][] {

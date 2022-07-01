@@ -8,7 +8,7 @@ const mode =
   process.env.NODE_ENV === "production" ? "production" : "development";
 
 if (mode === "production") {
-  await rm(resolve("dist"), { recursive: true });
+  await rm(resolve("dist"), { recursive: true, force: true });
 }
 
 const stats = await promisify(webpack)([
@@ -19,7 +19,9 @@ const stats = await promisify(webpack)([
     output: {
       path: resolve("dist"),
       filename: "index.js",
-      libraryTarget: "commonjs2",
+      library: {
+        type: "commonjs-static",
+      },
     },
     resolve: {
       extensions: [".ts"],
@@ -28,11 +30,8 @@ const stats = await promisify(webpack)([
       rules: [
         {
           test: /\.ts$/,
-          loader: "ts-loader",
+          loader: "babel-loader",
           include: resolve("src"),
-          options: {
-            transpileOnly: mode !== "production",
-          },
         },
       ],
     },

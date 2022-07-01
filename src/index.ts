@@ -1,118 +1,137 @@
-import { createReadStream } from "fs";
-import { readdir, stat } from "fs/promises";
 import { Middleware } from "koa";
-import { extname, join, relative, resolve, sep } from "path";
+import { join, resolve, sep } from "path";
 import { Readable } from "stream";
-import { parseHeaderRange } from "./range";
+import { readdirAsync } from "./fs";
+import { send, SendOptions } from "./send";
 
 export function rangeStatic(options?: RangeStaticOptions): Middleware {
-  let { directory, hidden, immutable, maxage, root, renderDirectory } = {
+  const { directory, renderDirent, withFileTypes, ...opts } = {
     ...defaultOptions,
     ...options,
   };
 
-  root = resolve(root);
+  const root = resolve(opts.root);
+  opts.root = root;
+
+  const getDirents = withFileTypes
+    ? getDirentsWithFileTypes
+    : getDirentsWithoutFileTypes;
 
   return async (ctx) => {
-    ctx.set("Accept-Ranges", "bytes");
-
     if (ctx.method !== "HEAD" && ctx.method !== "GET") {
       ctx.status = 405;
       return;
     }
 
-    const url = join("/", decodeURI(ctx.path));
-    const path = join(root, url);
+    const result = await send(ctx, ctx.path, opts);
+    if (directory && result && result.isDirectory) {
+      const path = result.path;
 
-    if (!hidden && isHidden(root, path)) return;
+      const dirents = await getDirents(result.path, result.absolute, opts);
 
-    const stats = await stat(path);
-
-    if (stats.isDirectory()) {
-      if (directory) {
-        let paths = await readdir(path);
-        if (!hidden) {
-          paths = paths.filter((path) => path[0] !== ".");
-        }
-
-        const item = paths.map((path) => ({
-          name: path,
-          url: join(url, path),
-        }));
-
-        if (path === root) {
-          item.unshift({ name: "..", url: join(url, "..") });
-        }
-
-        ctx.body = renderDirectory(item);
+      if (path !== sep) {
+        dirents.unshift({
+          name: "..",
+          path: join(path, ".."),
+        });
       }
-      return;
+
+      ctx.body = renderDirent(dirents);
     }
-
-    ctx.set("Last-Modified", stats.mtime.toUTCString());
-
-    const directives = [`max-age=${maxage}`];
-    if (immutable) {
-      directives.push("immutable");
-    }
-    ctx.set("Cache-Control", directives.join(","));
-
-    const rangeText = ctx.header.range;
-    if (!rangeText) {
-      ctx.set("Content-Length", `${stats.size}`);
-      ctx.status = 200;
-      ctx.type = extname(url);
-      ctx.body = createReadStream(path);
-      return;
-    }
-
-    const ranges = parseHeaderRange(rangeText, stats.size);
-    if (ranges.length === 0) {
-      ctx.status = 416;
-      return;
-    }
-
-    const [start, end] = ranges[0];
-    ctx.set("Content-Length", `${end - start + 1}`);
-    ctx.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
-    ctx.status = 206;
-    ctx.type = extname(url);
-    ctx.body = createReadStream(path, { start, end });
-    return;
   };
 }
 
-interface RangeStaticOptions {
+export interface RangeStaticOptions extends SendOptions {
+  /**
+   * Show directory, conflict with `format`
+   *
+   * Default is `false`
+   */
   directory?: boolean;
-  hidden?: boolean;
-  immutable?: boolean;
-  maxage?: number;
-  root?: string;
-  renderDirectory?: (items: Item[]) => string | Readable;
+
+  /**
+   * Render directory entries.
+   */
+  renderDirent?: (dirents: Dirent[]) => string | Readable;
+
+  /**
+   * see `fs.readdir`.
+   * If not false, **NOTE** whether your node version supports.
+   *
+   * Default is `true` on Node v10+.
+   */
+  withFileTypes?: boolean;
 }
 
-interface Item {
+export interface Dirent {
   name: string;
-  url: string;
+  path: string;
+  isDirectory?: boolean;
 }
 
-const defaultOptions: Required<RangeStaticOptions> = {
+const major = Number(process.versions.node.split(".")[0]);
+
+const defaultOptions = {
   directory: false,
   hidden: false,
-  immutable: false,
-  maxage: 0,
+  renderDirent,
+  withFileTypes: major >= 10,
   root: resolve(),
-  renderDirectory,
 };
 
-function isHidden(root: string, path: string): boolean {
-  return relative(root, path)
-    .split(sep)
-    .some((v) => v[0] === ".");
+function renderDirent(dirents: Dirent[]) {
+  return dirents
+    .map(({ name, path, isDirectory }) => {
+      return `<a href="${path}">${
+        isDirectory === true ? name + "/" : name
+      }</a>`;
+    })
+    .join("<br>");
 }
 
-function renderDirectory(items: Item[]) {
-  return items
-    .map(({ name, url }) => `<a href="${url}">${name}</a>`)
-    .join("<br>");
+async function getDirentsWithFileTypes(
+  path: string,
+  absolute: string,
+  options: SendOptions
+) {
+  let dirents = await readdirAsync(absolute, true);
+
+  if (!options.hidden) {
+    dirents = dirents.filter(({ name }) => name[0] !== ".");
+  }
+
+  return dirents
+    .map<Dirent>((dirent) => ({
+      name: dirent.name,
+      path: join(path, dirent.name),
+      isDirectory: dirent.isDirectory(),
+    }))
+    .sort((a, b) => {
+      if (a.isDirectory === b.isDirectory) {
+        return a.name.localeCompare(b.name);
+      } else {
+        return a.isDirectory ? -1 : 1;
+      }
+    });
+}
+
+async function getDirentsWithoutFileTypes(
+  path: string,
+  absolute: string,
+  options: SendOptions
+) {
+  let names = await readdirAsync(absolute);
+
+  if (!options.hidden) {
+    names = names.filter((name) => name[0] !== ".");
+  }
+
+  return names
+    .map<Dirent>((name) => ({
+      name: name,
+      path: join(path, name),
+    }))
+    .sort((a, b) => {
+      return a.name.localeCompare(b.name);
+    });
 }
