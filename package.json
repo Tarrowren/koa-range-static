@@ -33,7 +33,6 @@
     "@types/koa": "^2.13.4",
     "@types/mocha": "^9.1.1",
     "@types/node": "^16.11.43",
-    "@types/should": "^13.0.0",
     "@types/supertest": "^2.0.12",
     "koa": "^2.13.4",
     "mocha": "^10.0.0",
