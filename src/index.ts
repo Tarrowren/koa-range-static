@@ -1,21 +1,21 @@
+import { Stats } from "fs";
 import { Middleware } from "koa";
 import { join, resolve, sep } from "path";
 import { Readable } from "stream";
-import { readdirAsync } from "./fs";
-import { send, SendOptions } from "./send";
+import { format } from "./bytes.js";
+import { readdirAsync, statAsync } from "./fs.js";
+import { send, SendOptions } from "./send.js";
+
+export * from "./send.js";
 
 export function rangeStatic(options?: RangeStaticOptions): Middleware {
-  const { directory, renderDirent, withFileTypes, ...opts } = {
+  const { directory, renderDirent, ...opts } = {
     ...defaultOptions,
     ...options,
   };
 
   const root = resolve(opts.root);
   opts.root = root;
-
-  const getDirents = withFileTypes
-    ? getDirentsWithFileTypes
-    : getDirentsWithoutFileTypes;
 
   return async (ctx) => {
     if (ctx.method !== "HEAD" && ctx.method !== "GET") {
@@ -25,9 +25,21 @@ export function rangeStatic(options?: RangeStaticOptions): Middleware {
 
     const result = await send(ctx, ctx.path, opts);
     if (directory && result && result.isDirectory) {
-      const path = result.path;
+      const { absolute, path } = result;
 
-      const dirents = await getDirents(result.path, result.absolute, opts);
+      let names = await readdirAsync(absolute);
+
+      if (!opts.hidden) {
+        names = names.filter((name) => name[0] !== ".");
+      }
+
+      const dirents = await Promise.all(
+        names.map<Promise<Dirent>>(async (name) => ({
+          name,
+          path: join(path, name),
+          stats: await statAsync(join(absolute, name)),
+        }))
+      );
 
       if (path !== sep) {
         dirents.unshift({
@@ -53,85 +65,46 @@ export interface RangeStaticOptions extends SendOptions {
    * Render directory entries.
    */
   renderDirent?: (dirents: Dirent[]) => string | Readable;
-
-  /**
-   * see `fs.readdir`.
-   * If not false, **NOTE** whether your node version supports.
-   *
-   * Default is `true` on Node v10+.
-   */
-  withFileTypes?: boolean;
 }
 
 export interface Dirent {
   name: string;
   path: string;
-  isDirectory?: boolean;
+  stats?: Stats;
 }
-
-const major = Number(process.versions.node.split(".")[0]);
 
 const defaultOptions = {
   directory: false,
   hidden: false,
   renderDirent,
-  withFileTypes: major >= 10,
   root: resolve(),
 };
 
 function renderDirent(dirents: Dirent[]) {
   return dirents
-    .map(({ name, path, isDirectory }) => {
-      return `<a href="${path}">${
-        isDirectory === true ? name + "/" : name
-      }</a>`;
-    })
-    .join("<br>");
-}
-
-async function getDirentsWithFileTypes(
-  path: string,
-  absolute: string,
-  options: SendOptions
-) {
-  let dirents = await readdirAsync(absolute, true);
-
-  if (!options.hidden) {
-    dirents = dirents.filter(({ name }) => name[0] !== ".");
-  }
-
-  return dirents
-    .map<Dirent>((dirent) => ({
-      name: dirent.name,
-      path: join(path, dirent.name),
-      isDirectory: dirent.isDirectory(),
-    }))
     .sort((a, b) => {
-      if (a.isDirectory === b.isDirectory) {
+      if (!a.stats) return -1;
+      if (!b.stats) return 1;
+
+      let aIsDirectory = a.stats.isDirectory();
+      let bIsDirectory = b.stats.isDirectory();
+
+      if (aIsDirectory === bIsDirectory) {
         return a.name.localeCompare(b.name);
       } else {
-        return a.isDirectory ? -1 : 1;
+        return aIsDirectory ? -1 : 1;
       }
-    });
-}
+    })
+    .map(({ name, path, stats }) => {
+      if (!stats) {
+        return `<a href="${path}">${name}</a>`;
+      }
 
-async function getDirentsWithoutFileTypes(
-  path: string,
-  absolute: string,
-  options: SendOptions
-) {
-  let names = await readdirAsync(absolute);
-
-  if (!options.hidden) {
-    names = names.filter((name) => name[0] !== ".");
-  }
-
-  return names
-    .map<Dirent>((name) => ({
-      name: name,
-      path: join(path, name),
-    }))
-    .sort((a, b) => {
-      return a.name.localeCompare(b.name);
-    });
+      if (stats.isDirectory()) {
+        return `<a href="${path}">${name}/</a>`;
+      } else {
+        return `<a href="${path}">${name}\t${format(stats.size)}</a>`;
+      }
+    })
+    .join("<br>");
 }

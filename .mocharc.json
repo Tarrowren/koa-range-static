@@ -1,5 +1,5 @@
 {
   "extension": ["ts"],
-  "spec": "test/**/*.spec.ts",
-  "require": "test/babel-register.mjs"
+  "spec": "src/**/*.spec.ts",
+  "loader": "ts-node/esm"
 }

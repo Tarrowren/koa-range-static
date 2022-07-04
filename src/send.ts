@@ -1,14 +1,14 @@
 import { createReadStream } from "fs";
 import { Context } from "koa";
 import { extname, join, relative, resolve, sep } from "path";
-import { statAsync } from "./fs";
-import { parseRangeRequests } from "./range";
+import { statAsync } from "./fs.js";
+import { parseRangeRequests } from "./range.js";
 
 export async function send(
   ctx: Context,
   path: string,
   options?: SendOptions
-): Promise<Dirent | void> {
+): Promise<SendResult | void> {
   ctx.set("Accept-Ranges", "bytes");
 
   const { format, hidden, immutable, index, maxage, root } = {
@@ -69,12 +69,12 @@ export async function send(
     ctx.set("Content-Length", `${end - start + 1}`);
     ctx.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
     ctx.status = 206;
-    ctx.type = extname(path);
+    ctx.type = extname(path) || "txt";
     ctx.body = createReadStream(absolute, { start, end });
   } else {
     ctx.set("Content-Length", `${stats.size}`);
     ctx.status = 200;
-    ctx.type = extname(path);
+    ctx.type = extname(path) || "txt";
     ctx.body = createReadStream(absolute);
   }
 
@@ -129,13 +129,13 @@ export interface SendOptions {
   root?: string;
 }
 
-export interface Dirent {
+export interface SendResult {
   isDirectory: boolean;
   path: string;
   absolute: string;
 }
 
-const defaultOptions = {
+const defaultOptions: Required<SendOptions> = {
   format: false,
   hidden: false,
   immutable: false,
