@@ -2,25 +2,27 @@
   "name": "koa-range-static",
   "version": "1.0.0",
   "description": "Static file server middleware, support for range request",
-  "type": "module",
-  "exports": {
-    ".": {
-      "import": "./esm/index.js",
-      "require": "./cjs/index.js"
-    }
-  },
-  "main": "./cjs/index.js",
-  "types": "./cjs/index.d.ts",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "files": [
+    "./lib"
+  ],
   "scripts": {
     "test": "mocha",
-    "build:cjs": "tsc -p ./tsconfig.cjs.json",
-    "build:esm": "tsc -p ./tsconfig.esm.json",
-    "package": "npm run test && node clean.js && npm run build:cjs && npm run build:esm"
+    "build": "tsc -p ./tsconfig.build.json",
+    "prepublish": "node ./clean.mjs && npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Tarrowren/koa-range-static.git"
   },
+  "keywords": [
+    "koa",
+    "middleware",
+    "range",
+    "file",
+    "static"
+  ],
   "author": "Tarrowren",
   "license": "MIT",
   "bugs": {

@@ -1,6 +1,6 @@
 import Application from "koa";
 import supertest from "supertest";
-import { rangeStatic } from "./index.js";
+import { rangeStatic } from "./index";
 
 const app = new Application();
 app.use(rangeStatic({ directory: true, hidden: true }));

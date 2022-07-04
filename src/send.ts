@@ -1,8 +1,8 @@
 import { createReadStream } from "fs";
 import { Context } from "koa";
 import { extname, join, relative, resolve, sep } from "path";
-import { statAsync } from "./fs.js";
-import { parseRangeRequests } from "./range.js";
+import { statAsync } from "./fs";
+import { parseRangeRequests } from "./range";
 
 export async function send(
   ctx: Context,

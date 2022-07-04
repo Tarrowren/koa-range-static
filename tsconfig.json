@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "target": "ES2021",
-    "lib": ["ES2021"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES6",
+    "lib": ["ES2020"],
+    "esModuleInterop": true,
     "strict": true,
     "declaration": true,
     "rootDir": "src",
-    "outDir": "esm"
+    "outDir": "lib"
   }
 }

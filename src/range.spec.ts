@@ -1,5 +1,5 @@
 import should from "should";
-import { parseRangeRequests } from "./range.js";
+import { parseRangeRequests } from "./range";
 
 const filesize = 1024;
 

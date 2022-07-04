@@ -2,11 +2,11 @@ import { Stats } from "fs";
 import { Middleware } from "koa";
 import { join, resolve, sep } from "path";
 import { Readable } from "stream";
-import { format } from "./bytes.js";
-import { readdirAsync, statAsync } from "./fs.js";
-import { send, SendOptions } from "./send.js";
+import { format } from "./bytes";
+import { readdirAsync, statAsync } from "./fs";
+import { send, SendOptions } from "./send";
 
-export * from "./send.js";
+export * from "./send";
 
 export function rangeStatic(options?: RangeStaticOptions): Middleware {
   const { directory, renderDirent, ...opts } = {
