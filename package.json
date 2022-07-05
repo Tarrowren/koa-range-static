@@ -10,7 +10,7 @@
   "scripts": {
     "test": "mocha",
     "build": "tsc -p ./tsconfig.build.json",
-    "prepublish": "node ./clean.mjs && npm run build"
+    "prepublish": "npm run test && node ./clean.mjs && npm run build"
   },
   "repository": {
     "type": "git",
