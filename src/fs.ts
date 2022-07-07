@@ -1,3 +1,4 @@
+// compatible with node v7
 import { readdir, stat, Stats } from "fs";
 
 export async function statAsync(path: string) {

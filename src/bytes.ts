@@ -25,5 +25,5 @@ export function format(value: number) {
     unit = "B";
   }
 
-  return (value / map[unit]).toFixed(2) + unit;
+  return (value / map[unit]).toFixed(2) + " " + unit;
 }
