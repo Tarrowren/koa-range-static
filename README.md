@@ -8,13 +8,28 @@ Static file server middleware, support for range request
 npm i koa-range-static
 ```
 
+## Example
+
+```js
+const Application = require("koa");
+const { rangeStatic } = require("koa-range-static");
+
+const app = new Application();
+app.use(rangeStatic({ root: ".", directory: true }));
+app.listen(3000);
+```
+
 ## API
 
 ```js
-const { rangeStatic, send } = require("koa-range-static");
-app.use(rangeStatic({ root: "." }));
+// rangeStatic
+const { rangeStatic } = require("koa-range-static");
+app.use(rangeStatic(rangeStaticOptions));
+
+// send
+const { send } = require("koa-range-static");
 app.use(async (ctx) => {
-  await send(ctx, ctx.path);
+  await send(ctx, ctx.path, sendOptions);
 });
 ```
 
@@ -31,17 +46,6 @@ app.use(async (ctx) => {
   - `index` Name of the index file to serve automatically when visiting the root location. Default is `"index.html"`
   - `maxage` Browser cache max-age in seconds. Default is `0`
   - `root` Root directory to restrict file access. Default is `resolve()`
-
-## Example
-
-```js
-const Application = require("koa");
-const { rangeStatic } = require("koa-range-static");
-
-const app = new Application();
-app.use(rangeStatic({ root: ".", directory: true }));
-app.listen(3000);
-```
 
 ## License
 
