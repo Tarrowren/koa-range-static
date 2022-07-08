@@ -8,9 +8,10 @@
     "./lib"
   ],
   "scripts": {
+    "lint": "eslint src --ext ts",
     "test": "mocha",
-    "build": "tsc -p ./tsconfig.build.json",
-    "prepublish": "npm run test && node ./clean.mjs && npm run build"
+    "clean": "node ./clean.mjs",
+    "build": "tsc -p ./tsconfig.build.json"
   },
   "repository": {
     "type": "git",
@@ -34,6 +35,9 @@
     "@types/mocha": "^9.1.1",
     "@types/node": "^16.11.43",
     "@types/supertest": "^2.0.12",
+    "@typescript-eslint/eslint-plugin": "^5.30.5",
+    "@typescript-eslint/parser": "^5.30.5",
+    "eslint": "^8.19.0",
     "koa": "^2.13.4",
     "mocha": "^10.0.0",
     "should": "^13.2.3",

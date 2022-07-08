@@ -83,8 +83,12 @@ const defaultOptions = {
 function renderDirent(dirents: Dirent[]) {
   return dirents
     .sort((a, b) => {
-      if (!a.stats) return -1;
-      if (!b.stats) return 1;
+      if (!a.stats) {
+        return -1;
+      }
+      if (!b.stats) {
+        return 1;
+      }
 
       let aIsDirectory = a.stats.isDirectory();
       let bIsDirectory = b.stats.isDirectory();

@@ -1,9 +1,13 @@
+const NAN_ARRAY: [number, number] = [NaN, NaN];
+
 export function parseRangeRequests(
   text: string,
   size: number
 ): [number, number][] {
   const token = text.split("=");
-  if (token.length !== 2 || token[0] !== "bytes") return [];
+  if (token.length !== 2 || token[0] !== "bytes") {
+    return [];
+  }
 
   return token[1]
     .split(",")
@@ -13,17 +17,22 @@ export function parseRangeRequests(
 
 function parseRange(text: string, size: number): [number, number] {
   const token = text.split("-");
-  if (token.length !== 2) return NaNArray;
+  if (token.length !== 2) {
+    return NAN_ARRAY;
+  }
 
   const startText = token[0].trim();
   const endText = token[1].trim();
 
   if (startText === "") {
     if (endText === "") {
-      return NaNArray;
+      return NAN_ARRAY;
     } else {
       let start = size - Number(endText);
-      if (start < 0) start = 0;
+      if (start < 0) {
+        start = 0;
+      }
+
       return [start, size - 1];
     }
   } else {
@@ -31,10 +40,11 @@ function parseRange(text: string, size: number): [number, number] {
       return [Number(startText), size - 1];
     } else {
       let end = Number(endText);
-      if (end >= size) end = size - 1;
+      if (end >= size) {
+        end = size - 1;
+      }
+
       return [Number(startText), end];
     }
   }
 }
-
-const NaNArray: [number, number] = [NaN, NaN];

@@ -20,7 +20,9 @@ export async function send(
   path = join(sep, decodeURI(path));
 
   let absolute = join(root, path);
-  if (!hidden && isHidden(root, absolute)) return;
+  if (!hidden && isHidden(root, absolute)) {
+    return;
+  }
 
   let stats = await statAsync(absolute);
 
