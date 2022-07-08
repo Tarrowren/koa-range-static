@@ -1,12 +1,14 @@
 import { createReadStream } from "fs";
 import { Context } from "koa";
 import { contentType as getContentType } from "mime-types";
-import MultiStream from "multistream";
 import { extname, join, relative, resolve, sep } from "path";
 import { Readable } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
 import { shortid } from "./shortid";
+import { createMultiStream } from "./stream";
+
+const endOfLine = "\r\n";
 
 export async function send(
   ctx: Context,
@@ -69,6 +71,8 @@ export async function send(
 
   if (ranges) {
     if (ranges.length === 1) {
+      // range
+
       const [start, end] = ranges[0];
       ctx.set("Content-Length", `${end - start + 1}`);
       ctx.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
@@ -76,36 +80,33 @@ export async function send(
       ctx.type = extname(path) || "txt";
       ctx.body = createReadStream(absolute, { start, end });
     } else {
-      const boundary = await shortid(6);
-      ctx.set("Content-Type", `multipart/byteranges; boundary=${boundary}`);
+      // multipart ranges
 
-      let contentLength = 0;
-
+      const id = await shortid(6);
       const contentType =
         getContentType(extname(path) || "txt") || "application/octet-stream";
 
+      let contentLength = 0;
       const streams: Readable[] = [];
       for (const [start, end] of ranges) {
-        const boundaryBuffer = Buffer.from(
-          `${endOfLine}--${boundary}${endOfLine}Content-Type: ${contentType}${endOfLine}Content-Range: bytes ${start}-${end}/${stats.size}${endOfLine}${endOfLine}`
+        const boundary = Buffer.from(
+          `${endOfLine}--${id}${endOfLine}Content-Type: ${contentType}${endOfLine}Content-Range: bytes ${start}-${end}/${stats.size}${endOfLine}${endOfLine}`
         );
-        contentLength += boundaryBuffer.length + end - start + 1;
+        contentLength += boundary.length + end - start + 1;
 
-        streams.push(Readable.from(boundaryBuffer));
+        streams.push(Readable.from(boundary));
         streams.push(createReadStream(absolute, { start, end }));
       }
 
-      const boundaryBuffer = Buffer.from(
-        `${endOfLine}--${boundary}--${endOfLine}`
-      );
-      contentLength += boundaryBuffer.length;
+      const boundary = Buffer.from(`${endOfLine}--${id}--${endOfLine}`);
+      contentLength += boundary.length;
 
-      streams.push(Readable.from(boundaryBuffer));
+      streams.push(Readable.from(boundary));
 
+      ctx.set("Content-Type", `multipart/byteranges; boundary=${id}`);
       ctx.set("Content-Length", contentLength.toString());
-
       ctx.status = 206;
-      ctx.body = new MultiStream(streams);
+      ctx.body = createMultiStream(streams);
     }
   } else {
     ctx.set("Content-Length", `${stats.size}`);
@@ -185,5 +186,3 @@ function isHidden(root: string, path: string): boolean {
     .split(sep)
     .some((v) => v[0] === ".");
 }
-
-const endOfLine = "\r\n";
