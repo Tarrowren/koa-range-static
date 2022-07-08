@@ -1,8 +1,12 @@
 import { createReadStream } from "fs";
 import { Context } from "koa";
+import { contentType as getContentType } from "mime-types";
 import { extname, join, relative, resolve, sep } from "path";
+import { Readable } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
+import { shortid } from "./shortid";
+import { MultiReadStream } from "./stream";
 
 export async function send(
   ctx: Context,
@@ -40,19 +44,16 @@ export async function send(
     stats = await statAsync(absolute);
   }
 
+  let ranges: [number, number][] | undefined;
+
   const rangeText = ctx.header.range;
-
-  let range: [number, number] | undefined;
-
   if (rangeText) {
-    const ranges = parseRangeRequests(rangeText, stats.size);
+    ranges = parseRangeRequests(rangeText, stats.size);
 
     if (ranges.length === 0) {
       ctx.status = 416;
       return;
     }
-
-    range = ranges[0];
   }
 
   if (!ctx.response.get("Last-Modified")) {
@@ -66,13 +67,46 @@ export async function send(
     ctx.set("Cache-Control", directives.join(","));
   }
 
-  if (range) {
-    const [start, end] = range;
-    ctx.set("Content-Length", `${end - start + 1}`);
-    ctx.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
-    ctx.status = 206;
-    ctx.type = extname(path) || "txt";
-    ctx.body = createReadStream(absolute, { start, end });
+  if (ranges) {
+    if (ranges.length === 1) {
+      const [start, end] = ranges[0];
+      ctx.set("Content-Length", `${end - start + 1}`);
+      ctx.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
+      ctx.status = 206;
+      ctx.type = extname(path) || "txt";
+      ctx.body = createReadStream(absolute, { start, end });
+    } else {
+      const boundary = await shortid(6);
+      ctx.set("Content-Type", `multipart/byteranges; boundary=${boundary}`);
+
+      let contentLength = 0;
+
+      const contentType =
+        getContentType(extname(path) || "txt") || "application/octet-stream";
+
+      const streams: Readable[] = [];
+      for (const [start, end] of ranges) {
+        const boundaryBuffer = Buffer.from(
+          `${endOfLine}--${boundary}${endOfLine}Content-Type: ${contentType}${endOfLine}Content-Range: bytes ${start}-${end}/${stats.size}${endOfLine}${endOfLine}`
+        );
+        contentLength += boundaryBuffer.length + end - start + 1;
+
+        streams.push(Readable.from(boundaryBuffer));
+        streams.push(createReadStream(absolute, { start, end }));
+      }
+
+      const boundaryBuffer = Buffer.from(
+        `${endOfLine}--${boundary}--${endOfLine}`
+      );
+      contentLength += boundaryBuffer.length;
+
+      streams.push(Readable.from(boundaryBuffer));
+
+      ctx.set("Content-Length", contentLength.toString());
+
+      ctx.status = 206;
+      ctx.body = new MultiReadStream(streams);
+    }
   } else {
     ctx.set("Content-Length", `${stats.size}`);
     ctx.status = 200;
@@ -151,3 +185,5 @@ function isHidden(root: string, path: string): boolean {
     .split(sep)
     .some((v) => v[0] === ".");
 }
+
+const endOfLine = "\r\n";

@@ -66,6 +66,17 @@ describe("range requests", () => {
   });
 });
 
+describe("multipart ranges requests", () => {
+  it("should return 206 with ranges", async () => {
+    // TODO
+    await supertest(server)
+      .get("/test.txt")
+      .set("Range", "bytes=0-99,200-299")
+      .expect(206)
+      .expect("Accept-Ranges", "bytes");
+  });
+});
+
 after((done) => {
   server.close(done);
 });
