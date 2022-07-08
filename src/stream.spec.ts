@@ -3,28 +3,36 @@ import { createReadStream } from "fs";
 import { resolve } from "path";
 import should from "should";
 import { Readable } from "stream";
-import { createMultiStream } from "./stream";
+import { createMultiStream, from } from "./stream";
 
 describe("multi stream", () => {
-  it("buffer readable", async () => {
+  it("multi buffer readable", async () => {
     const bufs = [1024, 1024, 1024].map((size) => randomBytes(size));
 
-    const buf = await buffer(
+    const result = await buffer(
       createMultiStream(bufs.map((b) => Readable.from(b)))
     );
 
-    should(buf).deepEqual(Buffer.concat(bufs));
+    should(result).deepEqual(Buffer.concat(bufs));
   });
 
-  it("fs readable", async () => {
+  it("multi fs readable", async () => {
     const streams = [
       createReadStream(resolve("test.txt")),
       createReadStream(resolve("test.txt")),
     ];
 
-    const buf = await buffer(createMultiStream(streams));
+    const result = await buffer(createMultiStream(streams));
 
-    should(buf).deepEqual(Buffer.alloc(2 * 1024, "0"));
+    should(result).deepEqual(Buffer.alloc(2 * 1024, "0"));
+  });
+
+  it("buffer to stream", async () => {
+    const buf = randomBytes(16);
+
+    const result = await buffer(from(buf));
+
+    should(result).deepEqual(buf);
   });
 });
 

@@ -6,7 +6,7 @@ import { Readable } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
 import { shortid } from "./shortid";
-import { createMultiStream } from "./stream";
+import { createMultiStream, from } from "./stream";
 
 const endOfLine = "\r\n";
 
@@ -17,7 +17,7 @@ export async function send(
 ): Promise<SendResult | void> {
   ctx.set("Accept-Ranges", "bytes");
 
-  const { format, hidden, immutable, index, maxage, root } = {
+  const { format, getBoundaryParam, hidden, immutable, index, maxage, root } = {
     ...defaultOptions,
     ...options,
   };
@@ -82,7 +82,7 @@ export async function send(
     } else {
       // multipart ranges
 
-      const id = await shortid(6);
+      const id = await getBoundaryParam();
       const contentType =
         getContentType(extname(path) || "txt") || "application/octet-stream";
 
@@ -94,14 +94,14 @@ export async function send(
         );
         contentLength += boundary.length + end - start + 1;
 
-        streams.push(Readable.from(boundary));
+        streams.push(from(boundary));
         streams.push(createReadStream(absolute, { start, end }));
       }
 
       const boundary = Buffer.from(`${endOfLine}--${id}--${endOfLine}`);
       contentLength += boundary.length;
 
-      streams.push(Readable.from(boundary));
+      streams.push(from(boundary));
 
       ctx.set("Content-Type", `multipart/byteranges; boundary=${id}`);
       ctx.set("Content-Length", contentLength.toString());
@@ -164,6 +164,13 @@ export interface SendOptions {
    * Default is `resolve()`
    */
   root?: string;
+
+  /**
+   * Boundary parameter required for multipart ranges requests
+   *
+   * Default is a random value of length 12
+   */
+  getBoundaryParam?: () => string | Promise<string>;
 }
 
 export interface SendResult {
@@ -179,6 +186,7 @@ const defaultOptions: Required<SendOptions> = {
   index: "index.html",
   maxage: 0,
   root: resolve(),
+  getBoundaryParam: () => shortid(6),
 };
 
 function isHidden(root: string, path: string): boolean {

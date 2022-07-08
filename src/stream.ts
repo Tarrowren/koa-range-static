@@ -4,6 +4,15 @@ export function createMultiStream(sources: Readable[]): MultiStream {
   return new MultiStream(sources);
 }
 
+export function from(buffer: Buffer) {
+  return new Readable({
+    read() {
+      this.push(buffer);
+      this.push(null);
+    },
+  });
+}
+
 export class MultiStream extends Readable {
   #sources: Readable[];
   #current: Readable | null = null;
@@ -65,25 +74,25 @@ export class MultiStream extends Readable {
       .once("end", () => {
         this.#current = null;
         stream.removeAllListeners();
-        stream.destroy();
+        stream.destroy?.();
         this.#next();
       })
       .once("close", () => {
         if (!stream.readableEnded && !stream.destroyed) {
           const error = new Error("ERR_STREAM_PREMATURE_CLOSE");
           stream.removeAllListeners();
-          this.destroy(error);
+          this.destroy?.(error);
         }
       })
       .once("error", (error) => {
         stream.removeAllListeners();
-        this.destroy(error);
+        this.destroy?.(error);
       });
   }
 
   #destroy(stream: Readable, error?: Error | null) {
     if (!stream.destroyed) {
-      stream.destroy(error ?? undefined);
+      stream.destroy?.(error ?? undefined);
     }
   }
 }

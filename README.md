@@ -1,6 +1,6 @@
 # koa-range-static
 
-Static file server middleware, support for range request
+Static file server middleware, support for multipart ranges request
 
 ## Install
 
@@ -46,6 +46,7 @@ app.use(async (ctx) => {
   - `index` Name of the index file to serve automatically when visiting the root location. Default is `"index.html"`
   - `maxage` Browser cache max-age in seconds. Default is `0`
   - `root` Root directory to restrict file access. Default is `resolve()`
+  - `getBoundaryParam` Boundary parameter required for multipart ranges requests. Default is a random value of length 12
 
 ## License
 
