@@ -1,6 +1,6 @@
 {
   "name": "koa-range-static",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Static file server middleware, support for range request",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
