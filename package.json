@@ -20,6 +20,7 @@
   "keywords": [
     "koa",
     "middleware",
+    "multipart",
     "range",
     "file",
     "static"
@@ -34,6 +35,7 @@
     "@types/koa": "^2.13.4",
     "@types/mime-types": "^2.1.1",
     "@types/mocha": "^9.1.1",
+    "@types/multistream": "^4.1.0",
     "@types/node": "^16.11.43",
     "@types/supertest": "^2.0.12",
     "@typescript-eslint/eslint-plugin": "^5.30.5",
@@ -47,6 +49,7 @@
     "typescript": "^4.7.4"
   },
   "dependencies": {
-    "mime-types": "^2.1.35"
+    "mime-types": "^2.1.35",
+    "multistream": "^4.1.0"
   }
 }

@@ -1,12 +1,12 @@
 import { createReadStream } from "fs";
 import { Context } from "koa";
 import { contentType as getContentType } from "mime-types";
+import MultiStream from "multistream";
 import { extname, join, relative, resolve, sep } from "path";
 import { Readable } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
 import { shortid } from "./shortid";
-import { MultiReadStream } from "./stream";
 
 export async function send(
   ctx: Context,
@@ -105,7 +105,7 @@ export async function send(
       ctx.set("Content-Length", contentLength.toString());
 
       ctx.status = 206;
-      ctx.body = new MultiReadStream(streams);
+      ctx.body = new MultiStream(streams);
     }
   } else {
     ctx.set("Content-Length", `${stats.size}`);
