@@ -1,4 +1,4 @@
-// compatible with node v7
+// compatible with node v10
 import { readdir, stat, Stats } from "fs";
 
 export async function statAsync(path: string) {

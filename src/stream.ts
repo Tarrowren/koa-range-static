@@ -1,98 +1,142 @@
 import { Readable, ReadableOptions } from "stream";
 
-export function createMultiStream(sources: Readable[]): MultiStream {
-  return new MultiStream(sources);
+export function createMultiStream(streams: Readable[]): MultiStream {
+  return new MultiStream(streams);
 }
 
-export function from(buffer: Buffer) {
-  return new Readable({
-    read() {
-      this.push(buffer);
-      this.push(null);
-    },
-  });
+export function createBufferStream(buffer: Buffer) {
+  return new BufferStream(buffer);
 }
 
 export class MultiStream extends Readable {
-  #sources: Readable[];
-  #current: Readable | null = null;
+  #streams: Readable[];
+  #read: ((size: number) => void) | null | undefined;
 
-  constructor(sources: Readable[], options?: ReadableOptions) {
-    super({ ...options, autoDestroy: true });
-    this.#sources = sources;
+  constructor(streams: Readable[], opts?: ReadableOptions) {
+    super(opts);
 
-    this.#next();
+    this.#streams = streams;
+    this.#start();
   }
 
   _read(size: number): void {
-    this.#forward(size);
+    if (!this.#read) {
+      throw new Error("not ready to read");
+    }
+
+    this.#read(size);
   }
 
   _destroy(
     error: Error | null,
     callback: (error?: Error | null) => void
   ): void {
-    if (this.#current) {
-      this.#destroy(this.#current, error);
-    }
-
-    for (const stream of this.#sources) {
-      this.#destroy(stream, error);
-    }
-
     callback(error);
   }
 
-  #forward(size: number) {
-    if (!this.#current) {
-      return;
-    }
+  async #start() {
+    let size = 0;
+    let sizePromise = this.#getSize();
+    let cache: Buffer | null | undefined;
 
-    let chunk: Buffer | null;
-
-    do {
-      chunk = this.#current.read(size);
-      if (!chunk || !this.push(chunk)) {
-        break;
-      }
-    } while (true);
-  }
-
-  #next() {
-    const stream = this.#sources.shift();
-
-    if (!stream) {
-      this.push(null);
-      return;
-    }
-
-    this.#current = stream;
-    stream
-      .on("readable", () => {
-        this.#forward(this.readableHighWaterMark);
-      })
-      .once("end", () => {
-        this.#current = null;
-        stream.removeAllListeners();
-        stream.destroy?.();
-        this.#next();
-      })
-      .once("close", () => {
-        if (!stream.readableEnded && !stream.destroyed) {
-          const error = new Error("ERR_STREAM_PREMATURE_CLOSE");
-          stream.removeAllListeners();
-          this.destroy?.(error);
+    for (const stream of this.#streams) {
+      for await (const chunk of stream) {
+        if (!Buffer.isBuffer(chunk)) {
+          throw new Error("chunk not buffer");
         }
-      })
-      .once("error", (error) => {
-        stream.removeAllListeners();
-        this.destroy?.(error);
-      });
+
+        if (size === 0) {
+          size = await sizePromise;
+        }
+
+        cache = cache ? Buffer.concat([cache, chunk]) : chunk;
+        if (cache.length > size) {
+          do {
+            this.push(cache.slice(0, size));
+
+            cache = cache.slice(size);
+
+            sizePromise = this.#getSize();
+            size = await sizePromise;
+
+            if (cache.length < size) {
+              break;
+            } else if (cache.length === size) {
+              this.push(cache);
+
+              size = 0;
+              sizePromise = this.#getSize();
+              cache = null;
+
+              break;
+            }
+          } while (true);
+        } else if (cache.length === size) {
+          this.push(cache);
+
+          size = 0;
+          sizePromise = this.#getSize();
+          cache = null;
+        }
+      }
+    }
+
+    if (cache) {
+      this.push(cache);
+
+      cache = null;
+    }
+    this.push(null);
   }
 
-  #destroy(stream: Readable, error?: Error | null) {
-    if (!stream.destroyed) {
-      stream.destroy?.(error ?? undefined);
+  async #getSize() {
+    const size = await new Promise<number>((resolve) => {
+      this.#read = resolve;
+    });
+
+    this.#read = null;
+    return size;
+  }
+}
+
+export class BufferStream extends Readable {
+  #buffer: Buffer | null;
+  #bufferLength: number;
+  #pos = 0;
+
+  constructor(buffer: Buffer, opts?: ReadableOptions) {
+    super(opts);
+
+    this.#buffer = buffer;
+    this.#bufferLength = buffer.length;
+  }
+
+  _read(size: number): void {
+    if (!this.#buffer) {
+      return;
     }
+
+    if (this.#pos >= this.#bufferLength) {
+      this.push(null);
+    } else {
+      const start = this.#pos;
+      const end = start + size;
+      const chunk = this.#buffer.slice(start, end);
+
+      this.#pos = end;
+
+      process.nextTick(() => {
+        this.push(chunk);
+      });
+    }
+  }
+
+  _destroy(
+    error: Error | null,
+    callback: (error?: Error | null) => void
+  ): void {
+    this.#buffer = null;
+
+    callback(error);
   }
 }

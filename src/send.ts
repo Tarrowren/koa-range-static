@@ -6,7 +6,7 @@ import { Readable } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
 import { shortid } from "./shortid";
-import { createMultiStream, from } from "./stream";
+import { createBufferStream, createMultiStream } from "./stream";
 
 const endOfLine = "\r\n";
 
@@ -94,14 +94,14 @@ export async function send(
         );
         contentLength += boundary.length + end - start + 1;
 
-        streams.push(from(boundary));
+        streams.push(createBufferStream(boundary));
         streams.push(createReadStream(absolute, { start, end }));
       }
 
       const boundary = Buffer.from(`${endOfLine}--${id}--${endOfLine}`);
       contentLength += boundary.length;
 
-      streams.push(from(boundary));
+      streams.push(createBufferStream(boundary));
 
       ctx.set("Content-Type", `multipart/byteranges; boundary=${id}`);
       ctx.set("Content-Length", contentLength.toString());
