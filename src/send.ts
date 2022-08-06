@@ -1,12 +1,13 @@
+import { BufferReadable } from "buffer-readable";
 import { createReadStream } from "fs";
 import { Context } from "koa";
 import { contentType as getContentType } from "mime-types";
+import { MultiBufferReadable } from "multi-readable";
 import { extname, join, relative, resolve, sep } from "path";
 import { Readable } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
 import { shortid } from "./shortid";
-import { createBufferStream, createMultiStream } from "./stream";
 
 const endOfLine = "\r\n";
 
@@ -94,19 +95,19 @@ export async function send(
         );
         contentLength += boundary.length + end - start + 1;
 
-        streams.push(createBufferStream(boundary));
+        streams.push(new BufferReadable(boundary));
         streams.push(createReadStream(absolute, { start, end }));
       }
 
       const boundary = Buffer.from(`${endOfLine}--${id}--${endOfLine}`);
       contentLength += boundary.length;
 
-      streams.push(createBufferStream(boundary));
+      streams.push(new BufferReadable(boundary));
 
       ctx.set("Content-Type", `multipart/byteranges; boundary=${id}`);
       ctx.set("Content-Length", contentLength.toString());
       ctx.status = 206;
-      ctx.body = createMultiStream(streams);
+      ctx.body = new MultiBufferReadable(streams);
     }
   } else {
     ctx.set("Content-Length", `${stats.size}`);
