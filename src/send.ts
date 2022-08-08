@@ -18,7 +18,16 @@ export async function send(
 ): Promise<SendResult | void> {
   ctx.set("Accept-Ranges", "bytes");
 
-  const { format, getBoundaryParam, hidden, immutable, index, maxage, root } = {
+  const {
+    format,
+    getBoundaryParam,
+    hidden,
+    immutable,
+    index,
+    maxage,
+    multipart,
+    root,
+  } = {
     ...defaultOptions,
     ...options,
   };
@@ -71,7 +80,7 @@ export async function send(
   }
 
   if (ranges) {
-    if (ranges.length === 1) {
+    if ((multipart && ranges.length === 1) || !multipart) {
       // range
 
       const [start, end] = ranges[0];
@@ -160,6 +169,13 @@ export interface SendOptions {
   maxage?: number;
 
   /**
+   * Enable multipart ranges
+   *
+   * Default is `true`
+   */
+  multipart?: boolean;
+
+  /**
    * Root directory to restrict file access.
    *
    * Default is `resolve()`
@@ -180,12 +196,13 @@ export interface SendResult {
   absolute: string;
 }
 
-const defaultOptions: Required<SendOptions> = {
+export const defaultOptions: Required<SendOptions> = {
   format: false,
   hidden: false,
   immutable: false,
   index: "index.html",
   maxage: 0,
+  multipart: true,
   root: resolve(),
   getBoundaryParam: () => shortid(6),
 };

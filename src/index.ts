@@ -4,9 +4,11 @@ import { join, resolve, sep } from "path";
 import { Readable } from "stream";
 import { format } from "./bytes";
 import { readdirAsync, statAsync } from "./fs";
-import { send, SendOptions } from "./send";
-
-export * from "./send";
+import {
+  defaultOptions as defaultSendOptions,
+  send,
+  SendOptions,
+} from "./send";
 
 export function rangeStatic(options?: RangeStaticOptions): Middleware {
   const { directory, renderDirent, ...opts } = {
@@ -81,11 +83,10 @@ export interface Dirent {
   stats?: Stats;
 }
 
-const defaultOptions = {
+const defaultOptions: Required<RangeStaticOptions> = {
+  ...defaultSendOptions,
   directory: false,
-  hidden: false,
   renderDirent,
-  root: resolve(),
 };
 
 function renderDirent(dirents: Dirent[]) {
@@ -120,3 +121,5 @@ function renderDirent(dirents: Dirent[]) {
     })
     .join("<br>");
 }
+
+export { send, SendOptions };
