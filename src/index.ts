@@ -34,11 +34,19 @@ export function rangeStatic(options?: RangeStaticOptions): Middleware {
       }
 
       const dirents = await Promise.all(
-        names.map<Promise<Dirent>>(async (name) => ({
-          name,
-          path: join(path, name),
-          stats: await statAsync(join(absolute, name)),
-        }))
+        names.map<Promise<Dirent | null>>(async (name) => {
+          try {
+            const stats = await statAsync(join(absolute, name));
+
+            return {
+              name,
+              path: join(path, name),
+              stats,
+            };
+          } catch (e) {
+            return null;
+          }
+        })
       );
 
       if (path !== sep) {
@@ -48,7 +56,7 @@ export function rangeStatic(options?: RangeStaticOptions): Middleware {
         });
       }
 
-      ctx.body = renderDirent(dirents);
+      ctx.body = renderDirent(dirents.filter((d): d is Dirent => d !== null));
     }
   };
 }
