@@ -4,7 +4,7 @@ import { Context } from "koa";
 import { contentType as getContentType } from "mime-types";
 import { MultiBufferReadable } from "multi-readable";
 import { extname, join, relative, resolve, sep } from "path";
-import { Readable } from "stream";
+import { Readable, Transform } from "stream";
 import { statAsync } from "./fs";
 import { parseRangeRequests } from "./range";
 import { shortid } from "./shortid";
@@ -19,6 +19,7 @@ export async function send(
   ctx.set("Accept-Ranges", "bytes");
 
   const {
+    delay,
     format,
     getBoundaryParam,
     hidden,
@@ -30,6 +31,22 @@ export async function send(
   } = {
     ...defaultOptions,
     ...options,
+  };
+
+  const valve = (stream: Readable) => {
+    if (delay <= 0) {
+      return stream;
+    } else {
+      return stream.pipe(
+        new Transform({
+          transform(chunk, _encoding, callback) {
+            setTimeout(() => {
+              callback(null, chunk);
+            }, delay);
+          },
+        })
+      );
+    }
   };
 
   // disable access to files outside of root
@@ -88,7 +105,7 @@ export async function send(
       ctx.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
       ctx.status = 206;
       ctx.type = extname(path) || "txt";
-      ctx.body = createReadStream(absolute, { start, end });
+      ctx.body = valve(createReadStream(absolute, { start, end }));
     } else {
       // multipart ranges
 
@@ -116,13 +133,13 @@ export async function send(
       ctx.set("Content-Type", `multipart/byteranges; boundary=${id}`);
       ctx.set("Content-Length", contentLength.toString());
       ctx.status = 206;
-      ctx.body = new MultiBufferReadable(streams);
+      ctx.body = valve(new MultiBufferReadable(streams));
     }
   } else {
     ctx.set("Content-Length", `${stats.size}`);
     ctx.status = 200;
     ctx.type = extname(path) || "txt";
-    ctx.body = createReadStream(absolute);
+    ctx.body = valve(createReadStream(absolute));
   }
 
   return {
@@ -133,6 +150,13 @@ export async function send(
 }
 
 export interface SendOptions {
+  /**
+   * Delay sending each chunk.
+   *
+   * Default is `0`
+   */
+  delay?: number;
+
   /**
    * If not false, format the path to serve static file servers and not require a trailing slash for directories, so that you can do both /directory and /directory/.
    *
@@ -197,6 +221,7 @@ export interface SendResult {
 }
 
 export const defaultOptions: Required<SendOptions> = {
+  delay: 0,
   format: false,
   hidden: false,
   immutable: false,

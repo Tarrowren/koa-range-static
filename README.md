@@ -40,11 +40,13 @@ app.use(async (ctx) => {
   - For others, see `send options`
 
 - send options
+  - `delay` Delay sending each chunk. Default is `0`
   - `format` If not false, format the path to serve static file servers and not require a trailing slash for directories, so that you can do both /directory and /directory/. Default is `false`
   - `hidden` Allow transfer of hidden files and show hidden directory. Default is `false`
   - `immutable` Tell the browser the resource is immutable and can be cached indefinitely. Default is `false`
   - `index` Name of the index file to serve automatically when visiting the root location. Default is `"index.html"`
   - `maxage` Browser cache max-age in seconds. Default is `0`
+  - `multipart` Enable multipart ranges. Default is `true`
   - `root` Root directory to restrict file access. Default is `resolve()`
   - `getBoundaryParam` Boundary parameter required for multipart ranges requests. Default is a random value of length 12
 
